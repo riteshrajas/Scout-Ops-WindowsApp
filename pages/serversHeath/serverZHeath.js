@@ -386,3 +386,8 @@ function jsonToCSV(jsonArray) {
   window.URL.revokeObjectURL(url);
   Data = [];
 }
+
+// Make a function call every 5 seconds
+setInterval(fetchAndUpdateData, 5000);
+setInterval(fetchAndUpdateDevices, 5000);
+setInterval(fetchServerInfo, 5000);
