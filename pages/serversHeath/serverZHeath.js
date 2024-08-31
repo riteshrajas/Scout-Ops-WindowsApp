@@ -2,13 +2,14 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSavedIpPort().then(() => {
     fetchAndUpdateDevices();
     fetchAndUpdateData();
-    fetchServerInfo()
+    fetchServerInfo();
   });
 });
 
 var EventKey;
 var Server_ip;
 var Server_ip_port;
+Data = [];
 
 async function loadSavedIpPort() {
   const { ip, port } = await window.electron.getIpPort();
@@ -137,23 +138,25 @@ function fetchAndUpdateData() {
 }
 
 function fetchServerInfo() {
-    if (!Server_ip || !Server_ip_port) {
-        console.error("IP or Port is missing");
-        return;
-    }
+  if (!Server_ip || !Server_ip_port) {
+    console.error("IP or Port is missing");
+    return;
+  }
 
-    fetch(`http://${Server_ip}:${Server_ip_port}/api/get_health`)
-        .then((response) => response.json())
-        .then((data) => {
-       console.log("Fetched data:", data);
-            document.getElementById("server1-ip").textContent = Server_ip;
-            document.getElementById("server1-port").textContent = Server_ip_port;
-            document.getElementById("server1-status").textContent = data.ServerStatus;
-            document.getElementById("server1-battery").textContent = data.ServerBattery;
-            document.getElementById("server1-cpu").textContent = data.ServerCPUUsage;
-            document.getElementById("server1-memory").textContent = data.ServerMemoryUsage;
-        })
-        .catch((error) => console.error("Error fetching server info:", error));
+  fetch(`http://${Server_ip}:${Server_ip_port}/api/get_health`)
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Fetched data:", data);
+      document.getElementById("server1-ip").textContent = Server_ip;
+      document.getElementById("server1-port").textContent = Server_ip_port;
+      document.getElementById("server1-status").textContent = data.ServerStatus;
+      document.getElementById("server1-battery").textContent =
+        data.ServerBattery;
+      document.getElementById("server1-cpu").textContent = data.ServerCPUUsage;
+      document.getElementById("server1-memory").textContent =
+        data.ServerMemoryUsage;
+    })
+    .catch((error) => console.error("Error fetching server info:", error));
 }
 
 function openLogs() {
@@ -190,7 +193,7 @@ function uploadEvent() {
         });
         formdata.append("Event", eventFileBlob);
         formdata.append("EventKey", eventKey);
-
+        console.log("Event data:", data);
         sendFormData(formdata);
       })
       .catch((error) => {
@@ -210,7 +213,7 @@ function sendFormData(formdata) {
     redirect: "follow",
   };
 
-  fetch("http://10.0.0.30:5000/post_event_file", requestOptions)
+  fetch(`http://${Server_ip}:${Server_ip_port}/post_event_file`, requestOptions)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -274,4 +277,112 @@ function deleteAllDevices() {
       }
     })
     .catch((error) => console.error("Error deleting all devices:", error));
+}
+
+function downloadCSV() {
+  fetch(`http://${Server_ip}:${Server_ip_port}/api/get_data`)
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Fetched data:", data);
+
+      const dataListsContainer = document.getElementById(
+        "data-lists-container",
+      );
+      dataListsContainer.innerHTML = "";
+
+      data.forEach((item) => {
+        const name = item[0];
+        let matchData;
+
+        try {
+          let jsonString = item[1]
+            .replace(/'/g, '"')
+            .replace(/\\"/g, '"')
+            .replace(/"""/g, '\\"')
+            .replace(/,cm:"$/, ',cm:""}');
+
+          matchData = JSON.parse(jsonString);
+          datapoints = matchData.data;
+          const output = addQuotesToKeysAndValues(datapoints);
+          // console.log(JSON.parse(output));
+          Data.push(JSON.parse(output));
+        } catch (e) {
+          console.error("Error parsing JSON:", e);
+          console.error("Problematic JSON string:", item[1]);
+        }
+      });
+      jsonToCSV(Data);
+    });
+}
+
+function addQuotesToKeysAndValues(input) {
+  // Add double quotes around keys
+  let quotedString = input.replace(/(\w+):/g, '"$1":');
+
+  // Add double quotes around values if they are not already quoted or boolean/null
+  quotedString = quotedString.replace(
+    /:(\s*)([^,\{\}\[\]\s]+)/g,
+    (match, p1, p2) => {
+      if (p2.match(/^(true|false|null|\d+(\.\d+)?|\{|\[|\]|\})$/)) {
+        return `:${p1}${p2}`;
+      } else {
+        return `:${p1}"${p2}"`;
+      }
+    },
+  );
+
+  return quotedString;
+}
+
+function jsonToCSV(jsonArray) {
+  const csvRows = [];
+
+  // Function to flatten the object
+  function flattenObject(ob) {
+    let result = {};
+    for (const i in ob) {
+      if (
+        typeof ob[i] === "object" &&
+        ob[i] !== null &&
+        !Array.isArray(ob[i])
+      ) {
+        const flatObject = flattenObject(ob[i]);
+        for (const x in flatObject) {
+          result[i + "_" + x] = flatObject[x];
+        }
+      } else {
+        result[i] = ob[i];
+      }
+    }
+    return result;
+  }
+
+  // Flatten the first object to extract headers
+  const flattenedFirstObj = flattenObject(jsonArray[0]);
+  const headers = Object.keys(flattenedFirstObj);
+  csvRows.push(headers.join(",")); // Use comma as a separator
+
+  // Map each JSON object to a CSV row
+  jsonArray.forEach((obj) => {
+    const flattenedObj = flattenObject(obj);
+    const values = headers.map((header) => {
+      return JSON.stringify(flattenedObj[header] || ""); // Use empty string if value doesn't exist
+    });
+    csvRows.push(values.join(","));
+  });
+
+  // Join all rows into a single CSV string
+  const csvContent = csvRows.join("\n");
+
+  // Create a blob from the CSV string and trigger the download
+  const blob = new Blob([csvContent], { type: "text/csv" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.style.display = "none";
+  a.href = url;
+  a.download = "data.csv";
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  Data = [];
 }
