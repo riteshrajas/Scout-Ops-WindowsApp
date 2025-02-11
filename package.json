@@ -35,7 +35,7 @@
       "target": "nsis"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": true,
       "allowToChangeInstallationDirectory": true
     }

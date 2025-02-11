@@ -92,8 +92,8 @@ function fetchAndUpdateData() {
       dataListsContainer.innerHTML = "";
 
       data.forEach((item) => {
-        const name = item[0];
         let matchData;
+        let actualData;
 
         try {
           let jsonString = item[1]
@@ -101,21 +101,71 @@ function fetchAndUpdateData() {
             .replace(/\\"/g, '"')
             .replace(/"""/g, '\\"')
             .replace(/,cm:"$/, ',cm:""}');
-
+        
+          // Ensure keys and values are properly quoted
+          jsonString = jsonString.replace(/(\w+):/g, '"$1":').replace(/:(\s*)([^,\{\}\[\]\s]+)/g, (match, p1, p2) => {
+            if (p2.match(/^(true|false|null|\d+(\.\d+)?|\{|\[|\]|\})$/)) {
+              return `:${p1}${p2}`;
+            } else {
+              return `:${p1}"${p2}"`;
+            }
+          });
+        
           matchData = JSON.parse(jsonString);
         } catch (e) {
           console.error("Error parsing JSON:", e);
           console.error("Problematic JSON string:", item[1]);
           return;
         }
-
-        // Create circle element
-        const circle = document.createElement("div");
-        circle.className = "device-circle";
-        circle.textContent = name;
-        circle.addEventListener("click", () => showPopup(name, matchData));
-
-        dataListsContainer.appendChild(circle);
+        
+        try {
+          let jsonString = matchData['data']
+            .replace(/'/g, '"')
+            .replace(/\\"/g, '"')
+            .replace(/"""/g, '\\"')
+            .replace(/,cm:"$/, ',cm:""}');
+        
+          // Ensure keys and values are properly quoted
+          jsonString = jsonString.replace(/(\w+):/g, '"$1":').replace(/:(\s*)([^,\{\}\[\]\s]+)/g, (match, p1, p2) => {
+            if (p2.match(/^(true|false|null|\d+(\.\d+)?|\{|\[|\]|\})$/)) {
+              return `:${p1}${p2}`;
+            } else {
+              return `:${p1}"${p2}"`;
+            }
+          });
+        
+          actualData = JSON.parse(jsonString);
+        } catch (e) {
+          console.error("Error parsing JSON:", e);
+          console.error("Problematic JSON string:", matchData['data']);
+          return;
+        }
+        
+        // Create rounded rectangle element
+        const roundedRect = document.createElement("div");
+        roundedRect.className = "device-rect";
+        roundedRect.textContent = matchData['TypesselectedStation'];
+        console.log(matchData['data']);
+        
+        roundedRect.style.borderRadius = "10px";
+        roundedRect.style.height = "50px";
+        roundedRect.style.width = "70px";
+        
+        // Set background color based on matchData.TypesallianceColor
+        const allianceColor = matchData.TypesallianceColor;
+        if (allianceColor === "Red") {
+          roundedRect.style.backgroundColor = "red";
+        } else if (allianceColor === "Blue") {
+          roundedRect.style.backgroundColor = "blue";
+        } else {
+          roundedRect.style.backgroundColor = "gray"; // Default color
+        }
+        
+        // Add click event to show popup
+        roundedRect.addEventListener("click", () => showPopup(name, matchData));
+        
+        // Append the rounded rectangle to the container
+        dataListsContainer.appendChild(roundedRect);
       });
     });
 
@@ -387,6 +437,13 @@ function jsonToCSV(jsonArray) {
   Data = [];
 }
 
+
+function checkScouters()
+{
+
+
+  
+}
 // Make a function call every 5 seconds
 setInterval(fetchAndUpdateData, 5000);
 setInterval(fetchAndUpdateDevices, 5000);
