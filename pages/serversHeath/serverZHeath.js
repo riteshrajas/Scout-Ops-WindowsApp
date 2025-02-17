@@ -308,7 +308,7 @@ function showNotification(message, color = "green") {
   notification.style.backgroundColor = color;
   setTimeout(() => {
     notification.classList.remove("show");
-  }, 5000);
+  }, 201);
 }
 
 function deleteAllDevices() {
@@ -445,6 +445,6 @@ function checkScouters()
   
 }
 // Make a function call every 5 seconds
-setInterval(fetchAndUpdateData, 5000);
-setInterval(fetchAndUpdateDevices, 5000);
-setInterval(fetchServerInfo, 5000);
+setInterval(fetchAndUpdateData, 201);
+setInterval(fetchAndUpdateDevices, 201);
+setInterval(fetchServerInfo, 201);
